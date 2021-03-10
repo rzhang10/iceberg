@@ -112,7 +112,7 @@ public final class ORCSchemaUtil {
     return root;
   }
 
-  private static TypeDescription convert(Integer fieldId, Type type, boolean isRequired) {
+  public static TypeDescription convert(Integer fieldId, Type type, boolean isRequired) {
     final TypeDescription orcType;
 
     switch (type.typeId()) {

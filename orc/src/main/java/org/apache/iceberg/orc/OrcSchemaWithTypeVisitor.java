@@ -19,7 +19,9 @@
 
 package org.apache.iceberg.orc;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -59,16 +61,27 @@ public abstract class OrcSchemaWithTypeVisitor<T> {
   }
 
   private static <T> T visitRecord(
-      Types.StructType struct, TypeDescription record, OrcSchemaWithTypeVisitor<T> visitor) {
+      Types.StructType iStruct, TypeDescription record, OrcSchemaWithTypeVisitor<T> visitor) {
     List<TypeDescription> fields = record.getChildren();
     List<String> names = record.getFieldNames();
     List<T> results = Lists.newArrayListWithExpectedSize(fields.size());
+    Set<Integer> matchedColIds = new HashSet<>();
     for (TypeDescription field : fields) {
       int fieldId = ORCSchemaUtil.fieldId(field);
-      Types.NestedField iField = struct != null ? struct.field(fieldId) : null;
+      matchedColIds.add(fieldId);
+      Types.NestedField iField = iStruct != null ? iStruct.field(fieldId) : null;
       results.add(visit(iField != null ? iField.type() : null, field, visitor));
     }
-    return visitor.record(struct, record, names, results);
+    // we also need to add in un-matched column ids from iceberg schema,
+    // e.g. one case is when iceberg schema contains an empty iStruct,
+    // where orc schema doesn't have a matching field for it.
+    if (iStruct != null) {
+      iStruct.fields().stream().filter(iField -> !matchedColIds.contains(iField.fieldId()))
+              .forEach(iField -> results.add(visit(iField.type(),
+                      ORCSchemaUtil.convert(iField.fieldId(), iField.type(), iField.isRequired()),
+                      visitor)));
+    }
+    return visitor.record(iStruct, record, names, results);
   }
 
   public T record(Types.StructType iStruct, TypeDescription record, List<String> names, List<T> fields) {

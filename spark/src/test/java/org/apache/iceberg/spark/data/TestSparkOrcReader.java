@@ -33,12 +33,14 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterators;
 import org.apache.iceberg.spark.data.vectorized.VectorizedSparkOrcReaders;
 import org.apache.iceberg.types.Types;
+import org.apache.orc.TypeDescription;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.iceberg.spark.data.TestHelpers.assertEquals;
+import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.apache.iceberg.types.Types.NestedField.required;
 
 public class TestSparkOrcReader extends AvroDataTest {
@@ -48,6 +50,18 @@ public class TestSparkOrcReader extends AvroDataTest {
         .generateSpark(schema, 100, 0L);
 
     writeAndValidateRecords(schema, expected);
+  }
+
+  @Test
+  public void shouldHaveReaderForEmptyStruct() {
+    // iceberg schema has an empty struct column, where orc schema has no info on this column.
+    Schema iceberg = new Schema(
+            optional(1, "col1", Types.StructType.of(Collections.emptyList()))
+    );
+    TypeDescription orc = TypeDescription.createStruct();
+
+    SparkOrcReader reader = new SparkOrcReader(iceberg, orc, Collections.emptyMap());
+    System.out.println("Succeeded, the end of method is reached without exception.");
   }
 
   @Test
